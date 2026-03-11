@@ -1,0 +1,52 @@
+shared:
+  device: detect
+
+run:
+  folder: null
+  output: /output/
+  unet: model/unet.pt
+  dna_segmentation: false
+  dna_segmentation_threshold: 0.7
+  dna_quantification: false
+  dna_quant_min_component_area: 50
+  dna_quant_exclude_edge_touching: true
+  cluster_segmentation: false
+  cluster_model: rw
+  cluster_large_threshold_factor: 1.5
+  cluster_large_dilation_foreground: 5
+  cluster_large_dilation_background: 10
+  cluster_large_min_area: 200
+  cluster_large_beta: 90
+  cluster_small_diameter: 11
+  cluster_small_minmass: 300
+  cluster_small_min_area_filter: 10
+  cluster_small_max_area_filter: 2050
+  geometric_features: false
+  geo_exclude_edge_touching: false
+  geo_bend_angle_deg: 60.0
+  geo_bend_min_span_px: 5.0
+  geo_bend_span_nm_ref: 10.0
+  cluster_min_area: 1568.0
+  cluster_min_density: 3.16
+  cluster_quantification: false
+  pixel_size_csv: ''
+  coverage_quantification: false
+  dna_calibration: []
+  dna_calibration_thresholds: [0.8]
+  dna_calibration_folders: []
+  dna_calibration_dna_bp: []
+  dna_calibration_pixel_size_nm: []
+  dna_calibration_perc_low: []
+  dna_calibration_perc_high: []
+  loop_min_length: 10
+  dna_protein_dilation: 3
+  nm_per_bp: 0.34
+
+train:
+  folder:
+    - data/
+  epochs: 500
+  batch_size: 64
+  lr: 0.001
+  save_dir: model/
+  save_plots: false
