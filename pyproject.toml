@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dnasight"
-version = "1.6.10"
+version = "1.7.0"
 description = "DNAsight"
 readme = "README.md"
 license = "MIT"
