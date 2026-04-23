@@ -3,7 +3,7 @@
 DNAsight is a modular framework for automated segmentation and quantitative analysis of AFM images of DNA–protein complexes.
 See associated publication / for citation: https://doi.org/10.64898/2026.03.06.708946
 
-<img width="2398" height="1253" alt="image" src="https://github.com/user-attachments/assets/369e932c-92d6-42d7-992c-d099e6300d78" />
+<img width="2398" alt="image" src="https://github.com/user-attachments/assets/369e932c-92d6-42d7-992c-d099e6300d78" />
 
 It provides both:
 - **DNAsight GUI** for interactive, point-and-click analysis
@@ -34,7 +34,7 @@ It provides both:
 
 DNAsight can be installed in two ways:
 
-1. **Python (pip) installation** *(recommended for macOS users who already have Python)*
+1. **Python (pip) installation** *(recommended for users who already have Python, e.g. MacOS users)*
 2. **Standalone app download** *(recommended if you don’t want to install Python)*
 
 ### Option 1 — Install with pip (recommended if you have Python)
