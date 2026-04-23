@@ -1,0 +1,203 @@
+name: Build & Release (Windows + macOS, manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.2.3)"
+        required: true
+      prerelease:
+        description: "Mark as prerelease?"
+        type: boolean
+        default: false
+      release_name:
+        description: "Release name (defaults to tag)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build • Python ${{ matrix.python-version }} • ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+        python-version: ["3.10"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      # ---------- Install deps ----------
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          if (Test-Path requirements.txt) { pip install -r requirements.txt }
+          pip install pyinstaller
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          if [[ -f requirements.txt ]]; then pip install -r requirements.txt; fi
+          pip install pyinstaller
+
+      # ---------- Build ----------
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pyinstaller --clean --noconfirm dnasight-cmd.spec
+          pyinstaller --clean --noconfirm dnasight-gui.spec
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pyinstaller --clean --noconfirm dnasight-cmd.spec
+          pyinstaller --clean --noconfirm dnasight-gui.spec
+
+      # ---------- Test ----------
+      - name: Test the build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cp dnasight/config.yaml dist/
+          .\dist\dnasight-cmd.exe run --dna_segmentation --dna_segmentation_threshold 0.8 --loop_min_length 10 --folder data\example_data_linear_-hsp --output output --pixel_size_csv data\example_data_linear_-hsp/output/pixel_size.csv --nm_per_bp 0.34
+
+      - name: Test the build (MacOS)
+        if: runner.os == 'macOS'
+        shell: pwsh
+        run: |
+          cp dnasight/config.yaml dist/
+          ./dist/dnasight-cmd run --dna_segmentation --dna_segmentation_threshold 0.8 --loop_min_length 10 --folder data/example_data_linear_-hsp --output output --pixel_size_csv data/example_data_linear_-hsp/output/pixel_size.csv --nm_per_bp 0.34
+
+      # ---------- Stage payload ----------
+      - name: Stage release files (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+
+          $exes = Get-ChildItem -Path dist -Filter *.exe -ErrorAction SilentlyContinue
+          if (-not $exes) { throw "No executables found in 'dist'." }
+          Copy-Item -Path $exes.FullName -Destination release -Force
+
+          if (Test-Path "config.yaml") { Copy-Item "config.yaml" "release" -Force }
+
+          # Include example data (only selected files; keep data/example_data_linear_-hsp structure)
+          $src = "data\example_data_linear_-hsp"
+          if (-not (Test-Path $src)) { throw "Missing example data folder: $src" }
+          New-Item -ItemType Directory -Force -Path "release\data\example_data_linear_-hsp" | Out-Null
+          Copy-Item -Path "data\example_data_linear_-hsp\21220240046_0001.tif" -Destination "release\data\example_data_linear_-hsp\21220240046_0001.tif" -Force
+          Copy-Item -Path "data\example_data_linear_-hsp\21220240066_0007.tif" -Destination "release\data\example_data_linear_-hsp\21220240066_0007.tif" -Force
+          Copy-Item -Path "data\example_data_linear_-hsp\21220240071_0007.tif" -Destination "release\data\example_data_linear_-hsp\21220240071_0007.tif" -Force
+          Copy-Item -Path "data\example_data_linear_-hsp\pixel_sizes.csv" -Destination "release\data\example_data_linear_-hsp\pixel_sizes.csv" -Force
+
+          Write-Host "Staging contents:"; Get-ChildItem -Recurse release | Format-List -Property FullName
+
+      - name: Stage release files (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          found=0
+          for f in dist/dnasight-cmd dist/dnasight-gui; do
+            if [[ -f "$f" ]]; then
+              cp -f "$f" release/
+              chmod +x "release/$(basename "$f")"
+              found=1
+            fi
+          done
+          if [[ $found -eq 0 ]]; then
+            echo "No executables found in 'dist'." >&2
+            exit 1
+          fi
+          [[ -f config.yaml ]] && cp -f config.yaml release/
+
+          # Include example data (only selected files; keep data/example_data_linear_-hsp structure)
+          src="data/example_data_linear_-hsp"
+          [[ -d "$src" ]] || { echo "Missing example data folder: $src" >&2; exit 1; }
+          mkdir -p release/data/example_data_linear_-hsp
+          cp -f data/example_data_linear_-hsp/21220240046_0001.tif release/data/example_data_linear_-hsp/21220240046_0001.tif
+          cp -f data/example_data_linear_-hsp/21220240066_0007.tif release/data/example_data_linear_-hsp/21220240066_0007.tif
+          cp -f data/example_data_linear_-hsp/21220240071_0007.tif release/data/example_data_linear_-hsp/21220240071_0007.tif
+          cp -f data/example_data_linear_-hsp/pixel_sizes.csv release/data/example_data_linear_-hsp/pixel_sizes.csv
+
+          echo "Staging contents:"; find release -type f -print
+
+      # ---------- Zip ----------
+      - name: Create zip (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag }}"
+          if ([string]::IsNullOrWhiteSpace($tag)) { throw "Tag input is required." }
+          $zipName = "dnasight-windows-$tag.zip"
+          if (Test-Path $zipName) { Remove-Item $zipName -Force }
+          Push-Location release
+          Compress-Archive -Path * -DestinationPath "..\$zipName"
+          Pop-Location
+          "ZIP_PATH=$zipName" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Created $zipName"
+
+      - name: Create zip (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.inputs.tag }}"
+          if [[ -z "${tag// }" ]]; then echo "Tag input is required." >&2; exit 1; fi
+          zipName="dnasight-macos-${tag}.zip"
+          rm -f "$zipName"
+          (cd release && zip -r "../$zipName" .)
+          echo "ZIP_PATH=$zipName" >> "$GITHUB_ENV"
+          echo "Created $zipName"
+
+      # ---------- Upload artifact for aggregation in release job ----------
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP_PATH }}
+          path: ${{ env.ZIP_PATH }}
+          if-no-files-found: error
+          retention-days: 7
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          merge-multiple: true
+
+      - name: Show downloaded files
+        run: ls -alh ./artifacts
+
+      - name: Create GitHub Release (both zips)
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.event.inputs.tag }}
+          name: ${{ github.event.inputs.release_name || github.event.inputs.tag }}
+          artifacts: artifacts/*.zip
+          artifactErrorsFailBuild: true
+          prerelease: ${{ github.event.inputs.prerelease }}
+          generateReleaseNotes: true
