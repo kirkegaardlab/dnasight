@@ -1094,6 +1094,9 @@ def make_ui():
                         with tooltip("If enabled, discard quantification of geometric features of DNA that touch the image border."):
                             dpg.add_checkbox(label="Exclude edge touching", tag="gf_exclude_edge",
                                              default_value=True, callback=on_any_change)
+                        with tooltip("Savitzky–Golay filter window size to smooth pixels before estimating curvature (must be odd)."):
+                            dpg.add_input_int(label="Pixel smoothing before curvature calculation", tag="gf_curvature_smoothing",
+                                             default_value=True, callback=on_any_change)
 
                 dpg.add_spacer(height=8)
 

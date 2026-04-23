@@ -458,6 +458,8 @@ def cmd_run_unet(args):
                 geo_config["bend_min_span_px"] = args.geo_bend_min_span_px
             if args.geo_bend_span_nm_ref is not None:
                 geo_config["bend_span_nm_ref"] = args.geo_bend_span_nm_ref
+            if args.geo_curvature_smoothing is not None:
+                geo_config["pre_smooth_window"] = args.geo_curvature_smoothing
 
             # capture outputs
             df_geo, geo_out_csv = analyze_rg_branch_shape(
@@ -909,6 +911,10 @@ def main():
     run_parser.add_argument('--geo_bend_angle_deg', type=float, default=config['run'].get('geo_bend_angle_deg', 60.0), help='Bend angle threshold in degrees')
     run_parser.add_argument('--geo_bend_min_span_px', type=float, default=config['run'].get('geo_bend_min_span_px', 5.0), help='Minimum span in pixels for bend detection')
     run_parser.add_argument('--geo_bend_span_nm_ref', type=float, default=config['run'].get('geo_bend_span_nm_ref', 10.0), help='Reference span in nm for bend detection')
+    run_parser.add_argument('--geo_curvature_smoothing', type=float, default=config['run'].get('geo_curvature_smoothing', 15.0), help='Savitzky–Golay filter window size to smooth pixels before estimating curvature.')
+
+
+
     run_parser.add_argument('--loop_quantification', nargs="*", metavar="key=value", default=None,
                         help="Optional key=value config for loop quantification "
                              "(min_length,loops_on_path_dist,dilation_radius,do_skeletonize,save_overlays)")
