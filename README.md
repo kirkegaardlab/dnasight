@@ -1,7 +1,11 @@
 # DNAsight
 
-DNAsight is a modular framework for automated segmentation and quantitative analysis of AFM images of DNA–protein complexes. It provides both:
+DNAsight is a modular framework for automated segmentation and quantitative analysis of AFM images of DNA–protein complexes.
+See associated publication / for citation: https://doi.org/10.64898/2026.03.06.708946
 
+<img width="2398" height="1253" alt="image" src="https://github.com/user-attachments/assets/369e932c-92d6-42d7-992c-d099e6300d78" />
+
+It provides both:
 - **DNAsight GUI** for interactive, point-and-click analysis
 - **DNAsight CLI** for batch processing and reproducible pipelines
 
@@ -400,13 +404,6 @@ git clone https://github.com/emilywinther/dnasight
 cd dnasight
 pip install -e .
 ```
----
-
-## Citation
-
-If you use DNAsight in academic work, please cite:
-
-- DOI
 ---
 
 ## License
