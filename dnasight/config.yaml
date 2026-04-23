@@ -26,6 +26,7 @@ run:
   geo_bend_angle_deg: 60.0
   geo_bend_min_span_px: 5.0
   geo_bend_span_nm_ref: 10.0
+  geo_curvature_smoothing: 15.0
   cluster_min_area: 1568.0
   cluster_min_density: 3.16
   cluster_quantification: false

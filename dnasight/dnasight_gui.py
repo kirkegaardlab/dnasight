@@ -8,7 +8,6 @@ import os
 import pandas as pd
 import traceback
 
-
 APP_TITLE = "DNAsight"
 STATE = {
     "proc": None,
@@ -25,24 +24,22 @@ LOGO_TEX = None
 LOGO_DISPLAY_H = 50  # px height in the header
 
 CALIB_COLS = [
-    ("path",          "Path"),
-    ("dna_bp",        "DNA (bp)"),
+    ("path", "Path"),
+    ("dna_bp", "DNA (bp)"),
     ("pixel_size_nm", "Pixel size (nm)"),
-    ("perc_low",      "Low %"),
-    ("perc_high",     "High %"),
-    ("threshold",     "Seg. thresh"),
+    ("perc_low", "Low %"),
+    ("perc_high", "High %"),
+    ("threshold", "Seg. thresh"),
 ]
 
 CALIB_TOOLTIPS = {
-    "Path":           "Folder containing RAW calibration images for this dataset.\nThese will be segmented first, then used for nm/bp calibration.",
-    "DNA (bp)":       "Known length of the calibration DNA construct (in base pairs),\ne.g., 1059. Used to convert from pixels to nm/bp.",
-    "Pixel size (nm)":"Instrument pixel size (nm per pixel) for these images.\nIf you pass a pixel-size CSV, that will override per-image values.",
-    "Low %":          "Lower percentile cut used when fitting the length distribution\n(e.g., 5) to remove short outliers and partial molecules.",
-    "High %":         "Upper percentile cut used when fitting the length distribution\n(e.g., 95) to remove long outliers and merged molecules.",
-    "Seg. thresh":    "UNet probability threshold used ONLY for segmenting the\ncalibration folders (not the main dataset).",
+    "Path": "Folder containing RAW calibration images for this dataset.\nThese will be segmented first, then used for nm/bp calibration.",
+    "DNA (bp)": "Known length of the calibration DNA construct (in base pairs),\ne.g., 1059. Used to convert from pixels to nm/bp.",
+    "Pixel size (nm)": "Instrument pixel size (nm per pixel) for these images.\nIf you pass a pixel-size CSV, that will override per-image values.",
+    "Low %": "Lower percentile cut used when fitting the length distribution\n(e.g., 5) to remove short outliers and partial molecules.",
+    "High %": "Upper percentile cut used when fitting the length distribution\n(e.g., 95) to remove long outliers and merged molecules.",
+    "Seg. thresh": "UNet probability threshold used ONLY for segmenting the\ncalibration folders (not the main dataset).",
 }
-
-
 
 exe_mode = False
 if getattr(sys, 'frozen', False):
@@ -50,11 +47,13 @@ if getattr(sys, 'frozen', False):
     exe_mode = True
 cmd_mode = False
 
+
 # =========================
 # Utilities & serialization
 # =========================s
 def bool_str(b: bool) -> str:
     return "True" if b else "False"
+
 
 def fmt_float(value, precision: int = 3) -> str:
     try:
@@ -123,6 +122,7 @@ def build_dna_calibration_arg(row: dict):
     spec = ",".join(parts)
     return spec, None
 
+
 def get_table_rows(table_id):
     rows = []
     meta = dpg.get_item_user_data(table_id) or {}
@@ -135,6 +135,7 @@ def get_table_rows(table_id):
             row[key] = dpg.get_value(field_id) if field_id else ""
         rows.append(row)
     return rows
+
 
 def set_table_rows(table_id, rows):
     # clear table
@@ -161,6 +162,7 @@ def set_table_rows(table_id, rows):
         add_calibration_row(table_id, preset=dat)
 
     preview_update()
+
 
 # =========================
 # Command building & preview
@@ -197,7 +199,6 @@ def build_command():
         cluster_model = (dpg.get_value("cluster_model") or "").strip().lower() or "large"
         cmd += ["--cluster_model", cluster_model]
 
-
         if cluster_model == 'large':
             # Large / random walker options
             cmd += [
@@ -233,25 +234,26 @@ def build_command():
         cmd += ["--loop_min_length", str(int(dpg.get_value("lq_min_len")))]
 
     if dpg.get_value("geom_features"):
-        #q = f"dilation_radius={int(dpg.get_value('gf_dilate'))},"
-        #q = f"do_skeletonize={bool_str(dpg.get_value('gf_skel'))},"
+        # q = f"dilation_radius={int(dpg.get_value('gf_dilate'))},"
+        # q = f"do_skeletonize={bool_str(dpg.get_value('gf_skel'))},"
         q = f"min_pixels={int(dpg.get_value('gf_min_px'))},"
-        #q += f"cluster_eps={fmt_float(dpg.get_value('gf_eps'))},"
+        # q += f"cluster_eps={fmt_float(dpg.get_value('gf_eps'))},"
         q += f"exclude_edge_touching={bool_str(dpg.get_value('gf_exclude_edge'))},"
         q += f"bend_angle_deg={fmt_float(dpg.get_value('gf_bend_angle'))},"
         q += f"bend_min_span_px={fmt_float(dpg.get_value('gf_bend_span_px'))},"
         q += f"bend_span_nm_ref={fmt_float(dpg.get_value('gf_bend_span_nm'))}"
         cmd += ["--geometric_features", q]
+        cmd += ["--geo_curvature_smoothing", str(int(dpg.get_value("gf_curvature_smoothing")))]
 
     # paths
     folder = dpg.get_value("in_folder").strip()
     output = dpg.get_value("out_folder").strip()
-    #unet = dpg.get_value("unet_model").strip()
+    # unet = dpg.get_value("unet_model").strip()
     pixel_csv = dpg.get_value("pixel_csv").strip()
     if folder:    cmd += ["--folder", folder]
     if output:    cmd += ["--output", output]
-    #if unet:      cmd += ["--unet", unet]
-    if pixel_csv: 
+    # if unet:      cmd += ["--unet", unet]
+    if pixel_csv:
         cmd += ["--pixel_size_csv", pixel_csv]
     else:
         cmd += ["--pixel_size_csv", folder + "/" + output + "/" + "pixel_size.csv"]
@@ -291,10 +293,10 @@ def preview_update():
 
         # group "python dnasight-cmd.py run"
         if (
-            token == "python"
-            and i + 2 < len(cmd)
-            and cmd[i + 1].endswith(".py")
-            and not cmd[i + 2].startswith("-")
+                token == "python"
+                and i + 2 < len(cmd)
+                and cmd[i + 1].endswith(".py")
+                and not cmd[i + 2].startswith("-")
         ):
             grouped.append(f"{token} {shlex.quote(cmd[i + 1])} {shlex.quote(cmd[i + 2])}")
             i += 3
@@ -324,16 +326,16 @@ def _update_pixel_csv_enabled():
     else:
         dpg.enable_item("pixel_size_csv")
 
+
 def on_constant_pixel_size_change(sender=None, app_data=None, user_data=None):
     _update_pixel_csv_enabled()
     preview_update()
 
 
-
 def on_any_change(sender=None, app_data=None, user_data=None):
     # Update which options are shown in Module section:
-    for module in ["dna_seg", "cluster_seg", "cluster_quant", 
-                    "dna_quant", "loop_quant", "geom_features"]:
+    for module in ["dna_seg", "cluster_seg", "cluster_quant",
+                   "dna_quant", "loop_quant", "geom_features"]:
         if dpg.get_value(module):
             dpg.show_item(module + '_options')
         else:
@@ -350,6 +352,7 @@ def on_any_change(sender=None, app_data=None, user_data=None):
 
     # Update command preview:
     preview_update()
+
 
 # =========================
 # Running & logging
@@ -420,6 +423,7 @@ def start_process():
     STATE["proc_thread"] = t
     t.start()
 
+
 def stop_process():
     if STATE["proc"] and STATE["running"]:
         try:
@@ -436,13 +440,16 @@ def stop_process():
     except Exception:
         pass
 
+
 def wrap_text(text, width=100):
     return text
     # return '\n'.join(text[i:i+width] for i in range(0, len(text), width))
 
+
 def log_line(s: str):
     STATE["log"] = STATE["log"] + s
     dpg.set_value("log", wrap_text(STATE["log"]))
+
 
 def log_poller_callback(sender=None, app_data=None, user_data=None):
     drained = False
@@ -459,15 +466,18 @@ def log_poller_callback(sender=None, app_data=None, user_data=None):
         except Exception:
             pass
 
+
 # =========================
 # Portable timer shim
 # =========================
 _POLL_INTERVAL_FRAMES = 12  # ~0.2s at ~60 FPS
 
+
 def _poller_tick(sender=None, app_data=None, user_data=None):
     log_poller_callback()
     # reschedule next tick
     dpg.set_frame_callback(dpg.get_frame_count() + _POLL_INTERVAL_FRAMES, _poller_tick)
+
 
 def start_portable_timer():
     """Use add_timer if available; otherwise fall back to frame callbacks."""
@@ -484,12 +494,14 @@ def start_portable_timer():
     # fallback that works across versions
     dpg.set_frame_callback(dpg.get_frame_count() + _POLL_INTERVAL_FRAMES, _poller_tick)
 
+
 # =========================
 # File dialogs
 # =========================
 def open_folder_dialog(target_id):
     dpg.configure_item("folder_dialog", show=True)
     dpg.set_item_user_data("folder_dialog", target_id)
+
 
 def folder_selected(sender, app_data):
     # Prefer the explicit full path Dear PyGui gives us
@@ -504,12 +516,15 @@ def folder_selected(sender, app_data):
         dpg.set_value(target, str(Path(path).resolve()))
         preview_update()
 
+
 def open_file_dialog(target_id):
     dpg.configure_item("file_dialog", show=True)
     dpg.set_item_user_data("file_dialog", target_id)
 
+
 def show_dialog(dialog_tag):
     dpg.configure_item(dialog_tag, show=True)
+
 
 def create_pixel_size_csv():
     print("Creating pixel size CSV...")  # Placeholder for actual implementation
@@ -534,13 +549,14 @@ def create_pixel_size_csv():
 
     print(f"CSV file created with {len(tif_files)} entries and saved to {output_csv}")
 
+
 def check_and_create_pixel_size_csv_constant():
     if dpg.get_value("pixel_csv") != "":
         return
-    
+
     if dpg.get_value("constant_pixel_size") == "":
         return
-    
+
     if float(dpg.get_value("constant_pixel_size")) <= 0.0001:
         return
 
@@ -558,13 +574,12 @@ def check_and_create_pixel_size_csv_constant():
     })
 
     # Save the DataFrame to a CSV file
-    #output_csv = folder_path + "/" + dpg.get_value("out_folder") + "/pixel_size.csv"  # Replace with your desired path
+    # output_csv = folder_path + "/" + dpg.get_value("out_folder") + "/pixel_size.csv"  # Replace with your desired path
     out_dir = folder_path + "/" + dpg.get_value("out_folder")
     os.makedirs(out_dir, exist_ok=True)
     output_csv = out_dir + "/pixel_size.csv"
     print("Output CSV path:", output_csv)
     df.to_csv(output_csv, index=False)
-
 
     print(f"CSV file created with {len(tif_files)} entries and saved to {output_csv}")
 
@@ -580,6 +595,7 @@ def file_selected_to_target(sender, app_data, target_id):
         dpg.set_value(target_id, str(Path(path).resolve()))
         preview_update()
 
+
 def file_selected(sender, app_data):
     path = app_data.get("file_path_name")
     if not path:
@@ -590,6 +606,7 @@ def file_selected(sender, app_data):
     if target and path:
         dpg.set_value(target, str(Path(path).resolve()))
         preview_update()
+
 
 # =========================
 # Presets
@@ -607,7 +624,7 @@ def save_preset_cb():
         "paths": {
             "folder": dpg.get_value("in_folder"),
             "output": dpg.get_value("out_folder"),
-            #"unet": dpg.get_value("unet_model"),
+            # "unet": dpg.get_value("unet_model"),
             "pixel_csv": dpg.get_value("pixel_csv"),
         },
         "dna_segmentation": {
@@ -641,14 +658,15 @@ def save_preset_cb():
             "min_length": int(dpg.get_value("lq_min_len")),
         },
         "geom_features": {
-            #"dilation_radius": int(dpg.get_value("gf_dilate")),
-            #"do_skeletonize": bool(dpg.get_value("gf_skel")),
+            # "dilation_radius": int(dpg.get_value("gf_dilate")),
+            # "do_skeletonize": bool(dpg.get_value("gf_skel")),
             "min_pixels": int(dpg.get_value("gf_min_px")),
-            #"cluster_eps": float(dpg.get_value("gf_eps")),
+            # "cluster_eps": float(dpg.get_value("gf_eps")),
             "exclude_edge_touching": bool(dpg.get_value("gf_exclude_edge")),
             "bend_angle_deg": float(dpg.get_value("gf_bend_angle")),
             "bend_min_span_px": float(dpg.get_value("gf_bend_span_px")),
             "bend_span_nm_ref": float(dpg.get_value("gf_bend_span_nm")),
+            "curvature_smoothing": int(dpg.get_value("gf_curvature_smoothing")),
         },
         "calibrations": get_table_rows("calib_table"),
     }
@@ -658,6 +676,7 @@ def save_preset_cb():
         log_line(f"Saved preset to {path}\n")
     except Exception as e:
         log_line(f"Failed to save preset: {e}\n")
+
 
 def load_preset_cb():
     path = dpg.get_value("preset_path").strip() or "preset.json"
@@ -678,7 +697,7 @@ def load_preset_cb():
     p = data.get("paths", {})
     dpg.set_value("in_folder", p.get("folder", ""))
     dpg.set_value("out_folder", p.get("output", ""))
-    #dpg.set_value("unet_model", p.get("unet", ""))
+    # dpg.set_value("unet_model", p.get("unet", ""))
     dpg.set_value("pixel_csv", p.get("pixel_csv", ""))
 
     ds = data.get("dna_segmentation", {})
@@ -710,18 +729,20 @@ def load_preset_cb():
     dpg.set_value("lq_min_len", int(lq.get("min_length", 10)))
 
     gf = data.get("geom_features", {})
-    #dpg.set_value("gf_dilate", int(gf.get("dilation_radius", 0)))
-    #dpg.set_value("gf_skel", bool(gf.get("do_skeletonize", False)))
+    # dpg.set_value("gf_dilate", int(gf.get("dilation_radius", 0)))
+    # dpg.set_value("gf_skel", bool(gf.get("do_skeletonize", False)))
     dpg.set_value("gf_min_px", int(gf.get("min_pixels", 5)))
-    #dpg.set_value("gf_eps", float(gf.get("cluster_eps", 3.5)))
+    # dpg.set_value("gf_eps", float(gf.get("cluster_eps", 3.5)))
     dpg.set_value("gf_exclude_edge", bool(gf.get("exclude_edge_touching", True)))
     dpg.set_value("gf_bend_angle", float(gf.get("bend_angle_deg", 60.0)))
-    dpg.set_value("bend_min_span_px", float(gf.get("bend_min_span_px", 5.0)))
+    dpg.set_value("gf_bend_span_px", float(gf.get("bend_min_span_px", 5.0)))
     dpg.set_value("gf_bend_span_nm", float(gf.get("bend_span_nm_ref", 10.0)))
+    dpg.set_value("gf_curvature_smoothing", int(gf.get("curvature_smoothing", 15)))
 
     set_table_rows("calib_table", data.get("calibrations", []))
     preview_update()
     log_line(f"Loaded preset from {path}\n")
+
 
 # =========================
 # Calibration table helpers
@@ -745,9 +766,11 @@ def add_calibration_row(table_id, preset=None):
     def _add_calibration_cell(key, value, r):
         if key == "path":
             with dpg.group(horizontal=True) as grp:
-                path_field = dpg.add_input_text(default_value=str(value), tag=f'path_{r}', width=200, callback=on_any_change)
+                path_field = dpg.add_input_text(default_value=str(value), tag=f'path_{r}', width=200,
+                                                callback=on_any_change)
                 # Small browse buttons
-                dpg.add_button(label="Browse", width=50, callback=lambda s,a,u=path_field: open_folder_dialog(f'path_{r}'))
+                dpg.add_button(label="Browse", width=50,
+                               callback=lambda s, a, u=path_field: open_folder_dialog(f'path_{r}'))
             # IMPORTANT: return the INPUT FIELD id (so your table meta points to the text field)
             return path_field
 
@@ -757,10 +780,9 @@ def add_calibration_row(table_id, preset=None):
             except (TypeError, ValueError):
                 default_val = 0.8
             return dpg.add_input_float(default_value=default_val, min_value=0.0, max_value=1.0, step=0.01,
-                                    format="%.3f", width=-1, callback=on_any_change)
+                                       format="%.3f", width=-1, callback=on_any_change)
 
         return dpg.add_input_text(default_value=str(value), width=-1, callback=on_any_change)
-
 
     r = int(meta.get("rows", 0))
     with dpg.table_row(parent=table_id, tag=f"{table_id}_row_{r}"):
@@ -770,7 +792,7 @@ def add_calibration_row(table_id, preset=None):
             field = _add_calibration_cell(key, value, r)
             meta[f"cell_{r}_{c}"] = field
         # fixed-width button column fits into the fixed column defined in the table
-        del_btn = dpg.add_button(label="Remove", width=90, callback=lambda s,a,u=r: del_calibration_row(table_id, r))
+        del_btn = dpg.add_button(label="Remove", width=90, callback=lambda s, a, u=r: del_calibration_row(table_id, r))
         meta[f"del_{r}"] = del_btn
         meta[f"row_{r}"] = f"{table_id}_row_{r}"
     meta["rows"] = r + 1
@@ -778,12 +800,14 @@ def add_calibration_row(table_id, preset=None):
 
     on_any_change()
 
+
 def del_calibration_row(table_id, row_index):
     rows_data = get_table_rows(table_id)
     rows_data = [r for idx, r in enumerate(rows_data) if idx != row_index]
     set_table_rows(table_id, rows_data)
 
     on_any_change()
+
 
 def _pick_font_path():
     sysname = platform.system()
@@ -810,10 +834,12 @@ def _pick_font_path():
             return p
     return None
 
+
 def _asset_path(rel_path: str) -> Path:
     """Resolve asset path for both dev and frozen EXE modes."""
     base = Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) if exe_mode else Path(__file__).parent
     return (base / rel_path).resolve()
+
 
 def _try_load_logo(path: str | Path) -> str | None:
     """Load logo image into a static texture and return its texture tag."""
@@ -889,15 +915,14 @@ def make_theme():
             dpg.add_theme_style(dpg.mvStyleVar_GrabRounding, 6)
             dpg.add_theme_style(dpg.mvStyleVar_TabRounding, 6)
             dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 12, 10)
-            dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (20,20,23,255))
-            dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (50,50,50,255))
-            dpg.add_theme_color(dpg.mvThemeCol_Border, (60,60,70,255))
-            dpg.add_theme_color(dpg.mvThemeCol_Text, (230,230,240,255))
+            dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (20, 20, 23, 255))
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (50, 50, 50, 255))
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (60, 60, 70, 255))
+            dpg.add_theme_color(dpg.mvThemeCol_Text, (230, 230, 240, 255))
 
         with dpg.theme_component(dpg.mvInputText, enabled_state=False):
             dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (60, 60, 60), category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_Text, (120, 120, 120), category=dpg.mvThemeCat_Core)
-
 
     with dpg.theme(tag="info_icon_theme"):
         with dpg.theme_component(dpg.mvButton):
@@ -910,7 +935,6 @@ def make_theme():
             dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 4, 4)
 
 
-
 @contextmanager
 def tooltip(text):
     with dpg.group(horizontal=True):
@@ -921,6 +945,7 @@ def tooltip(text):
         dpg.bind_item_theme(icon, "info_icon_theme")
         with dpg.tooltip(icon):
             dpg.add_text(text)
+
 
 # =========================
 # UI
@@ -938,8 +963,8 @@ def make_ui():
 
         if font_path:
             try:
-                DEFAULT_FONT = dpg.add_font(font_path, 18)   # main UI font
-                SMALL_FONT   = dpg.add_font(font_path, 16)   # for preview & log
+                DEFAULT_FONT = dpg.add_font(font_path, 18)  # main UI font
+                SMALL_FONT = dpg.add_font(font_path, 16)  # for preview & log
                 print(f"[DNAsight] Using font: {font_path}")
             except Exception as e:
                 print(f"[DNAsight] Failed to load {font_path}: {e}")
@@ -969,7 +994,7 @@ def make_ui():
         pass  # folder selector doesn't need extensions
 
     with dpg.file_dialog(directory_selector=False, show=False,
-                         callback=lambda s,a: file_selected_to_target(s, a, "pixel_csv"),
+                         callback=lambda s, a: file_selected_to_target(s, a, "pixel_csv"),
                          tag="csv_dialog", height=420, width=760):
         dpg.add_file_extension(".csv")
 
@@ -983,7 +1008,7 @@ def make_ui():
                 disp_w = _header_logo_width_for_height(tex_w, tex_h, LOGO_DISPLAY_H)
                 dpg.add_image(LOGO_TEX, width=disp_w, height=LOGO_DISPLAY_H)
                 dpg.add_spacer(width=6)
-            #dpg.add_text("DNAsight 0.1")
+            # dpg.add_text("DNAsight 0.1")
 
         dpg.add_separator()
 
@@ -992,39 +1017,50 @@ def make_ui():
             with dpg.child_window(width=1024, height=780, border=True):
                 # Stages
                 with dpg.child_window(height=290, border=True):
-                    dpg.add_text("Stages", color=(180,200,255)); dpg.add_separator()
+                    dpg.add_text("Stages", color=(180, 200, 255));
+                    dpg.add_separator()
 
-                    with tooltip("Whether to run DNA segmentation module.\nIf you have already run this module and have segmentation masks saved, you can skip this step."):
+                    with tooltip(
+                            "Whether to run DNA segmentation module.\nIf you have already run this module and have segmentation masks saved, you can skip this step."):
                         dpg.add_checkbox(label="DNA segmentation", tag="dna_seg", callback=on_any_change)
 
-                    with dpg.tree_node(label="DNA segmentation options", tag="dna_seg_options", show=False, default_open=False):
-                        with tooltip("Segmentation threshold, leave as is to use the recommended value.\nLower values result in more identified DNA, but also more false positives.\nRefer to segmentation results to choose an appropriate value."):
+                    with dpg.tree_node(label="DNA segmentation options", tag="dna_seg_options", show=False,
+                                       default_open=False):
+                        with tooltip(
+                                "Segmentation threshold, leave as is to use the recommended value.\nLower values result in more identified DNA, but also more false positives.\nRefer to segmentation results to choose an appropriate value."):
                             dpg.add_input_float(label="Threshold", tag="dna_seg_threshold",
                                                 default_value=0.8, min_value=0.0, max_value=1.0,
                                                 step=0.01, format="%.3f", callback=on_any_change)
 
-                    with tooltip("Whether to run cluster segmentation module.\nIf you have already run this module and have segmentation masks saved, you can skip this step."):
+                    with tooltip(
+                            "Whether to run cluster segmentation module.\nIf you have already run this module and have segmentation masks saved, you can skip this step."):
                         dpg.add_checkbox(label="Cluster segmentation", tag="cluster_seg", callback=on_any_change)
 
-                    with dpg.tree_node(label="Cluster segmentation options", tag="cluster_seg_options", show=False, default_open=False):
-                        with tooltip("Selects which cluster segmentation approach to use.\nThe large model is optimal for larger structures of varying shape.\nThe small model is optimal for small circular objects."):
+                    with dpg.tree_node(label="Cluster segmentation options", tag="cluster_seg_options", show=False,
+                                       default_open=False):
+                        with tooltip(
+                                "Selects which cluster segmentation approach to use.\nThe large model is optimal for larger structures of varying shape.\nThe small model is optimal for small circular objects."):
                             dpg.add_combo(label="model", tag="cluster_model", items=["large", "small"],
                                           default_value="large", callback=on_any_change)
 
                         with dpg.tree_node(label="Large model", default_open=False):
-                            with tooltip("Intensity threshold for detected cluster.\nIncrease to make segmentation stricter, decrease to include more pixels."):
+                            with tooltip(
+                                    "Intensity threshold for detected cluster.\nIncrease to make segmentation stricter, decrease to include more pixels."):
                                 dpg.add_input_float(label="Intensity threshold", tag="cluster_large_threshold",
                                                     default_value=1.5, step=0.1, format="%.2f", callback=on_any_change)
-                            with tooltip("Pixel dilation of detected clusters, which are sure to be a part of the cluster.\nIncrease to detect larger clusters, decrease to be more conservative."):
+                            with tooltip(
+                                    "Pixel dilation of detected clusters, which are sure to be a part of the cluster.\nIncrease to detect larger clusters, decrease to be more conservative."):
                                 dpg.add_input_int(label="Foreground dilation", tag="cluster_large_dilate_fg",
                                                   default_value=5, min_value=0, callback=on_any_change)
-                            with tooltip("Pixel dilation from detected clusters, from where it is sure to be background.\nIncrease for larger clusters, decrease to be more conservative."):
+                            with tooltip(
+                                    "Pixel dilation from detected clusters, from where it is sure to be background.\nIncrease for larger clusters, decrease to be more conservative."):
                                 dpg.add_input_int(label="Background dilation", tag="cluster_large_dilate_bg",
                                                   default_value=10, min_value=0, callback=on_any_change)
                             with tooltip("Minimum area in pixels that a detected cluster must have to be kept."):
                                 dpg.add_input_int(label="Minimum area", tag="cluster_large_min_area",
                                                   default_value=200, min_value=0, callback=on_any_change)
-                            with tooltip("Shaping parameter for cluster segmentation.\nHigher values favor smoother regions, lower values to catch more details in segmentation outline."):
+                            with tooltip(
+                                    "Shaping parameter for cluster segmentation.\nHigher values favor smoother regions, lower values to catch more details in segmentation outline."):
                                 dpg.add_input_float(label="Shape parameter", tag="cluster_large_beta",
                                                     default_value=90.0, step=1.0, format="%.1f", callback=on_any_change)
 
@@ -1034,28 +1070,35 @@ def make_ui():
                                                   default_value=11, min_value=1, callback=on_any_change)
                             with tooltip("Minimum integrated intensity required for a detection."):
                                 dpg.add_input_float(label="Intensity threshold", tag="cluster_small_minmass",
-                                                    default_value=300.0, step=10.0, format="%.1f", callback=on_any_change)
+                                                    default_value=300.0, step=10.0, format="%.1f",
+                                                    callback=on_any_change)
                             with tooltip("Lower bound on detected cluster area (in pixels) retained after filtering."):
                                 dpg.add_input_float(label="Minimum area", tag="cluster_small_min_area",
                                                     default_value=10.0, step=1.0, format="%.1f", callback=on_any_change)
                             with tooltip("Upper bound on detected cluster area (in pixels) retained after filtering."):
                                 dpg.add_input_float(label="Maximum area", tag="cluster_small_max_area",
-                                                    default_value=2050.0, step=10.0, format="%.1f", callback=on_any_change)
+                                                    default_value=2050.0, step=10.0, format="%.1f",
+                                                    callback=on_any_change)
 
-                    with tooltip("Whether to perform quantification of protein clusters and protein-DNA associations after segmentation.\nIf no DNA segmentation is performed, only standalone protein cluster statistics will be computed."):
+                    with tooltip(
+                            "Whether to perform quantification of protein clusters and protein-DNA associations after segmentation.\nIf no DNA segmentation is performed, only standalone protein cluster statistics will be computed."):
                         dpg.add_checkbox(label="Cluster quantification", tag="cluster_quant", callback=on_any_change)
 
-                    with dpg.tree_node(label="Cluster quantification options", tag="cluster_quant_options", show=False, default_open=False):
+                    with dpg.tree_node(label="Cluster quantification options", tag="cluster_quant_options", show=False,
+                                       default_open=False):
                         with tooltip("Radius in pixels to dilate cluster masks to match with DNA segmentations."):
                             dpg.add_input_int(label="Dilation", tag="dna_protein_dilation",
                                               default_value=3, min_value=0, callback=on_any_change)
 
-                    with tooltip("Whether to compute DNA component statistics from the segmentation results.\nApply pixel size CSV to convert pixel measurements to nm.\nApply DNA calibration to convert pixel measurements to base pairs."):
+                    with tooltip(
+                            "Whether to compute DNA component statistics from the segmentation results.\nApply pixel size CSV to convert pixel measurements to nm.\nApply DNA calibration to convert pixel measurements to base pairs."):
                         dpg.add_checkbox(label="DNA quantification", tag="dna_quant",
                                          default_value=False, callback=on_any_change)
 
-                    with dpg.tree_node(label="DNA quantification options", default_open=False, tag="dna_quant_options", show=False):
-                        with tooltip("Smallest DNA object area (in pixels) that will be included in the quantification table."):
+                    with dpg.tree_node(label="DNA quantification options", default_open=False, tag="dna_quant_options",
+                                       show=False):
+                        with tooltip(
+                                "Smallest DNA object area (in pixels) that will be included in the quantification table."):
                             dpg.add_input_int(label="Minimum area", tag="dq_min_area",
                                               default_value=5, min_value=0, step=1, callback=on_any_change)
                         with tooltip("Discard DNA components that touch the image border."):
@@ -1069,7 +1112,8 @@ def make_ui():
                         dpg.add_checkbox(label="Loop quantification", tag="loop_quant",
                                          default_value=False, callback=on_any_change)
 
-                    with dpg.tree_node(label="Loop quantification options", tag="loop_quant_options", show=False, default_open=False):
+                    with dpg.tree_node(label="Loop quantification options", tag="loop_quant_options", show=False,
+                                       default_open=False):
                         with tooltip("Minimum loop length in pixels required for a loop to be counted."):
                             dpg.add_input_int(label="Minimum length", tag="lq_min_len",
                                               default_value=10, min_value=0, callback=on_any_change)
@@ -1078,31 +1122,40 @@ def make_ui():
                         dpg.add_checkbox(label="Spatial organization", tag="geom_features",
                                          default_value=False, callback=on_any_change)
 
-                    with dpg.tree_node(label="Spatial organization options", show=False, tag="geom_features_options", default_open=False):
-                        with tooltip("Minimum length in pixels a segmentation must contain to be considered for quantification."):
+                    with dpg.tree_node(label="Spatial organization options", show=False, tag="geom_features_options",
+                                       default_open=False):
+                        with tooltip(
+                                "Minimum length in pixels a segmentation must contain to be considered for quantification."):
                             dpg.add_input_int(label="Minimum length", tag="gf_min_px",
                                               default_value=5, min_value=0, callback=on_any_change)
-                        with tooltip("Threshold angle in degrees which DNA curvature has to\nbe above to be counted as a strong bend."):
+                        with tooltip(
+                                "Threshold angle in degrees which DNA curvature has to\nbe above to be counted as a strong bend."):
                             dpg.add_input_float(label="Strong bend angle", tag="gf_bend_angle",
                                                 default_value=60.0, step=1.0, format="%.1f", callback=on_any_change)
-                        with tooltip("Distance in px at which a bend is evaluated\nif it considered strong.\nLeave as is to use recommended value."):
+                        with tooltip(
+                                "Distance in px at which a bend is evaluated\nif it considered strong.\nLeave as is to use recommended value."):
                             dpg.add_input_float(label="Strong bend spand px", tag="gf_bend_span_px",
                                                 default_value=5.0, step=0.1, format="%.1f", callback=on_any_change)
-                        with tooltip("Distance in nm at which a bend is evaluated\nif it considered strong.\nLeave as is to use recommended value."):
+                        with tooltip(
+                                "Distance in nm at which a bend is evaluated\nif it considered strong.\nLeave as is to use recommended value."):
                             dpg.add_input_float(label="Strong bend spand nm", tag="gf_bend_span_nm",
                                                 default_value=10.0, step=0.1, format="%.1f", callback=on_any_change)
-                        with tooltip("If enabled, discard quantification of geometric features of DNA that touch the image border."):
+                        with tooltip(
+                                "If enabled, discard quantification of geometric features of DNA that touch the image border."):
                             dpg.add_checkbox(label="Exclude edge touching", tag="gf_exclude_edge",
                                              default_value=True, callback=on_any_change)
-                        with tooltip("Savitzky–Golay filter window size to smooth pixels before estimating curvature (must be odd)."):
-                            dpg.add_input_int(label="Pixel smoothing before curvature calculation", tag="gf_curvature_smoothing",
-                                             default_value=True, callback=on_any_change)
+                        with tooltip(
+                                "Savitzky–Golay filter window size to smooth pixels before estimating curvature (must be odd)."):
+                            dpg.add_input_int(label="Pixel smoothing",
+                                              tag="gf_curvature_smoothing",
+                                              default_value=15, callback=on_any_change)
 
                 dpg.add_spacer(height=8)
 
                 # Paths & files
                 with dpg.child_window(height=150, border=True):
-                    dpg.add_text("Paths & files", color=(180,200,255)); dpg.add_separator()
+                    dpg.add_text("Paths & files", color=(180, 200, 255));
+                    dpg.add_separator()
                     with dpg.group():
                         with dpg.group(horizontal=True):
                             with tooltip("Directory containing DNAsight input TIFF images of AFM data."):
@@ -1117,26 +1170,26 @@ def make_ui():
                             dpg.add_button(label="Browse", callback=lambda: open_folder_dialog("out_folder"))
 
                         with dpg.group(horizontal=True):
-                            with tooltip("Input fixed pixel size if constant for all input files.\nAlternatively input or generate empty pixel size CSV."):
-                                    dpg.add_input_text(
-                                        label="Pixel size",
-                                        tag="constant_pixel_size",
-                                        default_value="",
-                                        width=50,
-                                        callback=on_constant_pixel_size_change, 
-                                        # on_enter=False  # (default) fire on every edit; set True if you want only on Enter
-                                    )
-                                
+                            with tooltip(
+                                    "Input fixed pixel size if constant for all input files.\nAlternatively input or generate empty pixel size CSV."):
+                                dpg.add_input_text(
+                                    label="Pixel size",
+                                    tag="constant_pixel_size",
+                                    default_value="",
+                                    width=50,
+                                    callback=on_constant_pixel_size_change,
+                                    # on_enter=False  # (default) fire on every edit; set True if you want only on Enter
+                                )
+
                             with dpg.group(tag="pixel_size_csv", horizontal=True):
                                 with tooltip("Optional CSV listing per-image pixel sizes to override defaults."):
                                     dpg.add_input_text(label="Pixel size CSV", tag="pixel_csv",
-                                                    width=330, callback=on_any_change)
+                                                       width=330, callback=on_any_change)
                                 dpg.add_button(label="Browse", callback=lambda: show_dialog("csv_dialog"))
 
-                                with tooltip("Create a pixel size CSV file listing all TIFF files in the input folder with pixel size 0 nm/pixel.\nYou can then fill in the correct pixel sizes manually."):
-                                    dpg.add_button(label="Generate", callback = create_pixel_size_csv)
-                        
-            
+                                with tooltip(
+                                        "Create a pixel size CSV file listing all TIFF files in the input folder with pixel size 0 nm/pixel.\nYou can then fill in the correct pixel sizes manually."):
+                                    dpg.add_button(label="Generate", callback=create_pixel_size_csv)
 
                 dpg.add_spacer(height=8)
 
@@ -1147,7 +1200,8 @@ def make_ui():
 
                     with dpg.group(horizontal=True):
                         with tooltip("Static nm/bp calibration factor (used if no data calibration)."):
-                            dpg.add_input_text(label="nm/bp calibration", tag="nm_per_bp", default_value="0.34", width=75, callback=on_any_change)
+                            dpg.add_input_text(label="nm/bp calibration", tag="nm_per_bp", default_value="0.34",
+                                               width=75, callback=on_any_change)
                         dpg.add_spacer(width=25)
                         with tooltip("Append a new DNA calibration row to the table below."):
                             dpg.add_button(label="Add data calibration",
@@ -1158,25 +1212,24 @@ def make_ui():
 
                     # 2) Then add the table which will fill the remaining space
                     with dpg.table(
-                        tag="calib_table",
-                        header_row=False,
-                        resizable=True,
-                        policy=dpg.mvTable_SizingStretchProp,
-                        width=-1,
-                        height=-1,
-                        freeze_rows=1
+                            tag="calib_table",
+                            header_row=False,
+                            resizable=True,
+                            policy=dpg.mvTable_SizingStretchProp,
+                            width=-1,
+                            height=-1,
+                            freeze_rows=1
                     ):
-                        dpg.add_table_column(tag='tabel_path',          init_width_or_weight=0.8)
-                        dpg.add_table_column(tag='tabel_dna_bp',        init_width_or_weight=1)
+                        dpg.add_table_column(tag='tabel_path', init_width_or_weight=0.8)
+                        dpg.add_table_column(tag='tabel_dna_bp', init_width_or_weight=1)
                         dpg.add_table_column(tag='tabel_pixel_size_nm', init_width_or_weight=1)
-                        dpg.add_table_column(tag='tabel_low_pct',       init_width_or_weight=1.2)
-                        dpg.add_table_column(tag='tabel_high_pct',      init_width_or_weight=1.2)
-                        dpg.add_table_column(tag='tabel_threshold',     init_width_or_weight=0.8)
-                        dpg.add_table_column(tag='tabel_spacer',        init_width_or_weight=0.65)
+                        dpg.add_table_column(tag='tabel_low_pct', init_width_or_weight=1.2)
+                        dpg.add_table_column(tag='tabel_high_pct', init_width_or_weight=1.2)
+                        dpg.add_table_column(tag='tabel_threshold', init_width_or_weight=0.8)
+                        dpg.add_table_column(tag='tabel_spacer', init_width_or_weight=0.65)
 
                         # --- Pseudo-header row using your tooltip() helper ---
                         with dpg.table_row():
-
                             with tooltip("Path to calibration data"):
                                 dpg.add_text("Input folder")
 
@@ -1192,20 +1245,20 @@ def make_ui():
                             with tooltip("Upper percentile cut used in length fitting."):
                                 dpg.add_text("Upper threshold (%)")
 
-                            with tooltip("Segmentation threshold, leave as is to use the recommended value.\nLower values result in more identified DNA, but also more false positives.\nRefer to segmentation results to choose an appropriate value."):
+                            with tooltip(
+                                    "Segmentation threshold, leave as is to use the recommended value.\nLower values result in more identified DNA, but also more false positives.\nRefer to segmentation results to choose an appropriate value."):
                                 dpg.add_text("Threshold")
 
                             dpg.add_text("")  # spacer
 
-
                     dpg.set_item_user_data("calib_table", {"rows": 0})
-
 
             # ===== RIGHT COLUMN =====
             with dpg.child_window(width=512, height=780, border=True):
                 # Preview
                 with dpg.child_window(height=150, border=True):
-                    dpg.add_text("Command Preview", color=(180,200,255)); dpg.add_separator()
+                    dpg.add_text("Command Preview", color=(180, 200, 255));
+                    dpg.add_separator()
                     dpg.add_input_text(tag="preview", multiline=True, readonly=True, width=-1, height=-1)
                     if SMALL_FONT:
                         dpg.bind_item_font("preview", SMALL_FONT)
@@ -1214,7 +1267,8 @@ def make_ui():
 
                 # Run controls
                 with dpg.child_window(height=90, border=True):
-                    dpg.add_text("Run controls", color=(180,200,255)); dpg.add_separator()
+                    dpg.add_text("Run controls", color=(180, 200, 255));
+                    dpg.add_separator()
                     with dpg.group(horizontal=True):
                         dpg.add_button(label="Run", width=100, tag="run_btn", callback=start_process)
                         dpg.add_button(label="Stop", width=100, callback=stop_process)
@@ -1230,7 +1284,8 @@ def make_ui():
 
                 # Log
                 with dpg.child_window(tag="log_area", height=-1, border=True, autosize_x=True):
-                    dpg.add_text("Run log", color=(180,200,255)); dpg.add_separator()
+                    dpg.add_text("Run log", color=(180, 200, 255));
+                    dpg.add_separator()
                     dpg.add_input_text(
                         tag="log",
                         multiline=True,
