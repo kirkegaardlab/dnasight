@@ -201,9 +201,9 @@ The segmentation layer also contains the global ID of each DNA molecule in the i
 
 In addition, a folder called `segmentation_plots` is generated. This folder contains `.png` files with four plots for each input image and is intended to help the user assess DNA segmentation quality. These files are named in the same way as the annotated outputs.
 
-### S2: Cluster segmentation and quantification
+### S2: Cluster segmentation
 
-The cluster segmentation module outputs:
+The cluster segmentation module outputs inside folder `cluster_segmentation`:
 
 - an `.npy` file containing the segmentation mask and global ID for each cluster
 - a `.png` file intended to help users assess whether the cluster segmentation parameters should be adjusted
@@ -221,25 +221,6 @@ This file contains the following columns:
 - `centroid_y`: y coordinate of the centroid of a detected cluster in pixels
 - `intensity`: summed intensity of pixels in the segmented cluster
 - `area`: area of the segmented cluster in pixels
-
-#### `cluster_quantification.csv`
-
-This file contains the following columns:
-
-- `cluster_id`: global ID of each cluster within the provided files. If you run a different folder, the IDs may repeat. They are only global within the given folder.
-- `file`: filename of the corresponding `.tif` file
-- `summed_intensity_px`: summed intensity of pixels within the cluster segmentation
-- `bg_ring_mean`: local background around the segmented cluster
-- `bg_corrected_summed_intensity_px`: background-corrected summed intensity of pixels
-- `touches_edge_cluster`: `True` or `False` depending on whether the segmented cluster touches the image edge
-- `centroid_x`: x coordinate of the centroid of a detected cluster in pixels
-- `centroid_y`: y coordinate of the centroid of a detected cluster in pixels
-- `pixel_size`: pixel size of the given image when applied; empty if no pixel size is given
-- `cluster_area_nm2`: area of the segmented cluster in nm²; empty if no pixel size is given
-- `summed_intensity_per_nm`: summed intensity of the segmented cluster normalized to pixel size; empty if no pixel size is given
-- `summed_intensity_per_nm2`: summed intensity of the segmented cluster normalized to area; empty if no pixel size is given
-- `bg_summed_intensity_per_nm`: local background-corrected summed intensity of the segmented cluster normalized to pixel size; empty if no pixel size is given
-- `bg_summed_intensity_per_nm2`: local background-corrected summed intensity of the segmented cluster normalized to area; empty if no pixel size is given
 
 ### Q1: DNA length calculation
 
@@ -264,7 +245,7 @@ This file contains the following columns:
 
 ### Q2: DNA spatial organization
 
-The DNA spatial organization module outputs a `.csv` file called `geometric_features_summary`, which contains information about the extracted geometric features.
+The DNA spatial organization module outputs a `.csv` file called `geometric_features_summary`, which contains information about the extracted geometric features. It also outputs `.pdf` files with selected geometric feature values overlaid the raw images.
 
 #### `geometric_features_summary.csv`
 
@@ -302,9 +283,9 @@ The DNA loop quantification module outputs a folder called `loops`, which contai
 
 A yellow circle is used to indicate anchor points for loops where the intensity of the overlap exceeds the mean plus standard deviation of the intensity of the DNA molecule.
 
-The module also outputs a `.csv` file containing information about each loop.
+The module also outputs a csv file named `loops_summary.csv` which contains information about each loop.
 
-#### Loop output `.csv`
+#### Loop output `loops_summary.csv`
 
 This file contains the following columns:
 
@@ -331,38 +312,57 @@ This file contains the following columns:
 - `attachment_y`: y coordinate of the loop anchor in pixels
 
 ### Q4: Protein-DNA associations
+The protein-DNA association quantification module outputs the inside folder `cluster_quantification`, where it creates a folder named `overlays`, which saves `.pdf` files showing overlays of associated clusters and DNA (in bp). Inside `cluster_quantification` it outputs the followings csvs:
 
-The protein-DNA associations module outputs two `.csv` files.
-
-The first is centered on individual clusters and is called `cluster_dna_summary`. It contains the same columns as `cluster_quantification.csv`, with additional columns describing associated DNA.
-
-#### `cluster_dna_summary.csv`
-
-Additional columns:
-
-- `sum_length_px`: total length of associated DNA in pixels; empty if no associated DNA
-- `sum_length_nm`: total length of associated DNA in nm; empty if no associated DNA or if no pixel size is given
-- `sum_length_bp`: total length of associated DNA in bp; empty if no associated DNA, if no pixel size is given, or if no calibration is applied
-- `n_dna_linked`: number of separate DNA segmentations associated with the cluster
-- `dna_ids_list`: list of global IDs of all associated DNA segmentations
-- `touches_edge_dna`: `True` or `False` depending on whether one or more associated DNA segmentations touch the image edge
-
-The second file is called `group_summary` and contains information about connected groups of DNA segmentations and clusters.
-
-#### `group_summary.csv`
+#### `cluster_quantification.csv`
 
 This file contains the following columns:
 
-- `filename`: filename of the corresponding `.tif` file
-- `n_clusters_in_group`: number of clusters in the group
-- `cluster_ids`: list of global cluster IDs in the group
-- `dna_ids`: list of global DNA IDs in the group
-- `total_length_px`: total length of DNA in the group in pixels; empty if no DNA is present
-- `total_length_nm`: total length of DNA in the group in nm; empty if no DNA is present or if no pixel size is given
-- `total_length_bp`: total length of DNA in the group in bp; empty if no DNA is present, if no pixel size is given, or if no calibration is given
-- `lengths_px_list`: list of DNA lengths in pixels, in the same order as the DNA IDs
-- `lengths_nm_list`: list of DNA lengths in nm, in the same order as the DNA IDs; empty if no DNA is present or if no pixel size is given
-- `lengths_bp_list`: list of DNA lengths in bp, in the same order as the DNA IDs; empty if no DNA is present, if no pixel size is given, or if no calibration is given
+- `cluster_id`: global ID of each cluster within the provided files. If you run a different folder, the IDs may repeat. They are only global within the given folder.
+- `file`: filename of the corresponding `.tif` file
+- `summed_intensity_px`: summed intensity of pixels within the cluster segmentation
+- `bg_ring_mean`: local background around the segmented cluster
+- `bg_corrected_summed_intensity_px`: background-corrected summed intensity of pixels
+- `touches_edge_cluster`: `True` or `False` depending on whether the segmented cluster touches the image edge
+- `centroid_x`: x coordinate of the centroid of a detected cluster in pixels
+- `centroid_y`: y coordinate of the centroid of a detected cluster in pixels
+- `pixel_size`: pixel size of the given image when applied; empty if no pixel size is given
+- `cluster_area_nm2`: area of the segmented cluster in nm²; empty if no pixel size is given
+- `summed_intensity_per_nm`: summed intensity of the segmented cluster normalized to pixel size; empty if no pixel size is given
+- `summed_intensity_per_nm2`: summed intensity of the segmented cluster normalized to area; empty if no pixel size is given
+- `bg_summed_intensity_per_nm`: local background-corrected summed intensity of the segmented cluster normalized to pixel size; empty if no pixel size is given
+- `bg_summed_intensity_per_nm2`: local background-corrected summed intensity of the segmented cluster normalized to area; empty if no pixel size is given
+
+#### `group_summary.csv`
+
+This file contains one row per connected group of clusters (i.e. clusters connected either directly or via shared DNA).
+
+- `filename`: filename key of the corresponding image  
+- `n_clusters_in_group`: number of clusters in the group  
+- `cluster_ids`: list of global cluster IDs belonging to the group  
+- `dna_ids`: list of DNA molecule IDs associated with the group  
+- `total_length_px`: total DNA length associated with the group in pixels (sum over all associated DNA molecules)  
+- `total_length_nm`: total DNA length in nanometers; empty if no pixel size is given  
+- `total_length_bp`: total DNA length in base pairs; empty if no calibration is available  
+- `lengths_px_list`: list of individual DNA segment lengths (in pixels) associated with the group  
+- `lengths_nm_list`: list of individual DNA segment lengths (in nanometers); empty if no pixel size is given  
+- `lengths_bp_list`: list of individual DNA segment lengths (in base pairs); empty if no calibration is available  
+
+This file includes all DNA segments associated with each group, including terminal segments at DNA ends. If desired, the output can be filtered downstream (e.g. using the DNA-centered summary) to include only DNA segments associated with a specific number of clusters, such as exactly two clusters to focus on linker-like segments between nucleosomes.
+
+#### `dna_centered_summary.csv`
+
+This file contains one row per DNA molecule that is associated with at least one cluster.
+
+- `filename`: filename key of the corresponding image  
+- `dna_id`: global ID of the DNA molecule within the image  
+- `n_clusters_associated`: number of clusters associated with the DNA molecule  
+- `cluster_ids`: list of global cluster IDs associated with the DNA molecule  
+- `length_px`: DNA length in pixels; empty if the DNA length was not found  
+- `length_nm`: DNA length in nanometers; empty if no pixel size or calibration is available  
+- `length_bp`: DNA length in base pairs; empty if no base-pair calibration is available
+
+This file enables filtering of DNA molecules based on their cluster associations. For example, selecting DNA molecules with `n_clusters_associated == 2` restricts the analysis to DNA segments associated with exactly two clusters, which can be used to isolate linker-like DNA segments between nucleosomes.
 
 ### Notes
 
