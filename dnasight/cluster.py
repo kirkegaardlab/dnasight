@@ -2110,6 +2110,7 @@ def summarize_and_make_overlays(
     output_csv_path,
     output_overlay_folder,
     *,
+    dna_centered_output_csv_path=None,
     dilation_radius_px=15,
     min_overlap_px=1,
     min_dna_component_area_px=1,
@@ -2122,17 +2123,22 @@ def summarize_and_make_overlays(
     debug=False
 ):
     """
-    Exactly the behavior from your standalone script:
-      - writes group_summary.csv
-      - writes per-image overlays into output_overlay_folder
+    Writes:
+      - group_summary.csv
+      - optional dna_centered_summary.csv
+      - per-image overlays into output_overlay_folder
     """
     os.makedirs(output_overlay_folder, exist_ok=True)
+
     seg_csv = os.path.join(cluster_seg_folder, "segmentation_results.csv")
     if not os.path.exists(seg_csv):
         raise FileNotFoundError(f"Missing segmentation_results.csv in {cluster_seg_folder}")
+
     clusters_df = pd.read_csv(seg_csv)
     len_df = _load_lengths_table(lengths_csv_path, debug=debug)
+
     rows_out = []
+    dna_rows_out = []
 
     def _autocontrast(img, p_lo=2, p_hi=98):
         a = img.astype(np.float32, copy=False)
@@ -2150,14 +2156,23 @@ def summarize_and_make_overlays(
 
         cl_path = os.path.join(cluster_seg_folder, f"{stem}_segmentation.npy")
         if not os.path.exists(cl_path):
-            if debug: print(f"Missing cluster segmentation: {cl_path}")
+            if debug:
+                print(f"Missing cluster segmentation: {cl_path}")
             continue
+
         cluster_labels = np.load(cl_path).astype(np.int32, copy=False)
 
         try:
-            raw, id_map = _load_dna_ids_with_loader(dna_annot_folder, stem, dilation_radius=0, do_skeletonize=False, debug=debug)
+            raw, id_map = _load_dna_ids_with_loader(
+                dna_annot_folder,
+                stem,
+                dilation_radius=0,
+                do_skeletonize=False,
+                debug=debug
+            )
         except Exception as e:
-            if debug: print(f"{stem}: {e}")
+            if debug:
+                print(f"{stem}: {e}")
             continue
 
         if id_map.shape != cluster_labels.shape:
@@ -2168,7 +2183,10 @@ def summarize_and_make_overlays(
         if raw.ndim == 2 and raw.shape != cluster_labels.shape:
             raw = _align_to_shape(raw, cluster_labels.shape)
         elif raw.ndim == 3 and raw.shape[-2:] != cluster_labels.shape:
-            raw = np.stack([_align_to_shape(raw[c], cluster_labels.shape) for c in range(raw.shape[0])], axis=0)
+            raw = np.stack(
+                [_align_to_shape(raw[c], cluster_labels.shape) for c in range(raw.shape[0])],
+                axis=0
+            )
 
         if min_dna_component_area_px > 1:
             ids = id_map[id_map > 0]
@@ -2178,19 +2196,32 @@ def summarize_and_make_overlays(
                 if small.size:
                     id_map[np.isin(id_map, small)] = 0
 
-        expanded = expand_labels(cluster_labels, distance=int(dilation_radius_px)) if dilation_radius_px > 0 else cluster_labels
+        expanded = (
+            expand_labels(cluster_labels, distance=int(dilation_radius_px))
+            if dilation_radius_px > 0
+            else cluster_labels
+        )
 
-        kept_local_ids = set(map(int, sub['local_id'].unique()))
+        kept_local_ids = set(map(int, sub["local_id"].unique()))
         if not kept_local_ids:
             continue
-        local_to_global = dict(zip(sub['local_id'].astype(int), sub['global_cluster_id'].astype(int)))
+
+        local_to_global = dict(
+            zip(sub["local_id"].astype(int), sub["global_cluster_id"].astype(int))
+        )
 
         per_label_dna = {}
+
         for lid in kept_local_ids:
-            m = (expanded == lid)
+            m = expanded == lid
+
             if not m.any():
-                per_label_dna[lid] = set(); continue
-            dids = id_map[m]; dids = dids[dids > 0]
+                per_label_dna[lid] = set()
+                continue
+
+            dids = id_map[m]
+            dids = dids[dids > 0]
+
             if dids.size == 0:
                 per_label_dna[lid] = set()
             else:
@@ -2199,47 +2230,119 @@ def summarize_and_make_overlays(
                 per_label_dna[lid] = set(map(int, hits))
 
         edges = set()
+
         for a, b in _label_adjacency_4n(expanded):
             if a in kept_local_ids and b in kept_local_ids:
-                edges.add((min(a,b), max(a,b)))
+                edges.add((min(a, b), max(a, b)))
+
         dna_to_lids = {}
+
         for lid in kept_local_ids:
             for d in per_label_dna.get(lid, ()):
                 dna_to_lids.setdefault(d, []).append(lid)
+
         for d, lids_list in dna_to_lids.items():
             if len(lids_list) >= 2:
                 arr = sorted(set(lids_list))
-                for i in range(len(arr)-1):
-                    for j in range(i+1, len(arr)):
+                for i in range(len(arr) - 1):
+                    for j in range(i + 1, len(arr)):
                         edges.add((arr[i], arr[j]))
 
         uf = UnionFind(kept_local_ids)
+
         for a, b in edges:
             uf.union(a, b)
+
         groups = {}
+
         for lid in kept_local_ids:
             groups.setdefault(uf.find(lid), set()).add(lid)
 
-        lengths_sub = len_df[len_df['filename_key'] == filename_key].copy()
-        lengths_by_id = {int(r['dna_global_id']): r for _, r in lengths_sub.iterrows()}
+        lengths_sub = len_df[len_df["filename_key"] == filename_key].copy()
+        lengths_by_id = {
+            int(r["dna_global_id"]): r
+            for _, r in lengths_sub.iterrows()
+        }
 
+        # ------------------------------------------------------------
+        # DNA-centered summary
+        # One row per DNA molecule associated with at least one cluster
+        # ------------------------------------------------------------
+        for did, lids_list in sorted(dna_to_lids.items()):
+            associated_lids = sorted(set(map(int, lids_list)))
+
+            associated_global_clusters = sorted([
+                int(local_to_global[lid])
+                for lid in associated_lids
+                if lid in local_to_global
+            ])
+
+            if len(associated_global_clusters) == 0:
+                continue
+
+            rec = lengths_by_id.get(int(did), {})
+
+            dna_rows_out.append({
+                "filename": filename_key,
+                "dna_id": int(did),
+                "n_clusters_associated": len(associated_global_clusters),
+                "cluster_ids": json.dumps(associated_global_clusters),
+                "length_px": (
+                    None
+                    if rec is None or pd.isna(rec.get("length_px", np.nan))
+                    else float(rec["length_px"])
+                ),
+                "length_nm": (
+                    None
+                    if rec is None or pd.isna(rec.get("length_nm", np.nan))
+                    else float(rec["length_nm"])
+                ),
+                "length_bp": (
+                    None
+                    if rec is None or pd.isna(rec.get("length_bp", np.nan))
+                    else float(rec["length_bp"])
+                ),
+            })
+
+        # ------------------------------------------------------------
+        # Group-centered summary
+        # ------------------------------------------------------------
         for _, lids_set in groups.items():
-            cluster_ids_global = sorted([int(local_to_global[lid]) for lid in lids_set])
+            cluster_ids_global = sorted([
+                int(local_to_global[lid])
+                for lid in lids_set
+            ])
+
             dna_ids_group = set()
+
             for lid in lids_set:
                 dna_ids_group.update(per_label_dna.get(lid, set()))
+
             dna_ids_global = sorted(int(d) for d in dna_ids_group)
 
-            by_id = {int(r['dna_global_id']): r for _, r in lengths_sub.iterrows()}
             lens_px_list, lens_nm_list, lens_bp_list = [], [], []
+
             for d in dna_ids_global:
-                rec = by_id.get(d)
-                lens_px_list.append(None if rec is None or pd.isna(rec.get('length_px')) else float(rec['length_px']))
-                lens_nm_list.append(None if rec is None or pd.isna(rec.get('length_nm')) else float(rec['length_nm']))
-                lens_bp_list.append(None if rec is None or pd.isna(rec.get('length_bp')) else float(rec['length_bp']))
+                rec = lengths_by_id.get(d)
+
+                lens_px_list.append(
+                    None if rec is None or pd.isna(rec.get("length_px"))
+                    else float(rec["length_px"])
+                )
+                lens_nm_list.append(
+                    None if rec is None or pd.isna(rec.get("length_nm"))
+                    else float(rec["length_nm"])
+                )
+                lens_bp_list.append(
+                    None if rec is None or pd.isna(rec.get("length_bp"))
+                    else float(rec["length_bp"])
+                )
 
             def _sum_safe(vals):
-                arr = [x for x in vals if x is not None and not (isinstance(x, float) and np.isnan(x))]
+                arr = [
+                    x for x in vals
+                    if x is not None and not (isinstance(x, float) and np.isnan(x))
+                ]
                 return float(np.sum(arr)) if arr else None
 
             rows_out.append({
@@ -2255,63 +2358,182 @@ def summarize_and_make_overlays(
                 "lengths_bp_list": json.dumps(lens_bp_list),
             })
 
-        # overlay
+        # ------------------------------------------------------------
+        # Overlay
+        # ------------------------------------------------------------
         import matplotlib.pyplot as plt
+
         H, W = cluster_labels.shape
         cl_props = {rp.label: rp.centroid for rp in regionprops(cluster_labels)}
         dna_props = {rp.label: rp.centroid for rp in regionprops(id_map)}
+
         fig, ax = plt.subplots(figsize=(6, 6), dpi=160)
+
         raw_disp = _autocontrast(raw if raw.ndim == 2 else raw[0])
-        ax.imshow(raw_disp, cmap='gray', zorder=1)
+        ax.imshow(raw_disp, cmap="gray", zorder=1)
         ax.set_axis_off()
         ax.set_title(f"{filename_key} - groups/lengths")
-        cl_rgb = label2rgb(np.where(cluster_labels > 0, cluster_labels, 0), bg_label=0, alpha=None, image=None, kind='overlay')
+
+        cl_rgb = label2rgb(
+            np.where(cluster_labels > 0, cluster_labels, 0),
+            bg_label=0,
+            alpha=None,
+            image=None,
+            kind="overlay"
+        )
         ax.imshow(cl_rgb, alpha=cluster_fill_alpha, zorder=2)
-        cl_bound = find_boundaries(cluster_labels, mode='inner')
-        ax.imshow(np.where(cl_bound, 1.0, np.nan), cmap='Blues', alpha=cluster_edge_alpha, zorder=3)
-        dna_rgb = label2rgb(np.where(id_map > 0, id_map, 0), bg_label=0, alpha=None, image=None, kind='overlay')
+
+        cl_bound = find_boundaries(cluster_labels, mode="inner")
+        ax.imshow(
+            np.where(cl_bound, 1.0, np.nan),
+            cmap="Blues",
+            alpha=cluster_edge_alpha,
+            zorder=3
+        )
+
+        dna_rgb = label2rgb(
+            np.where(id_map > 0, id_map, 0),
+            bg_label=0,
+            alpha=None,
+            image=None,
+            kind="overlay"
+        )
         ax.imshow(dna_rgb, alpha=dna_fill_alpha, zorder=4)
+
         contours = measure.find_contours(id_map.astype(float), level=0.5)
+
         for cnt in contours:
-            ax.plot(cnt[:, 1], cnt[:, 0], color=dna_edge_color, linewidth=dna_edge_lw, zorder=5)
+            ax.plot(
+                cnt[:, 1],
+                cnt[:, 0],
+                color=dna_edge_color,
+                linewidth=dna_edge_lw,
+                zorder=5
+            )
+
         group_index = 1
+
         for _, lids_set in sorted(groups.items(), key=lambda kv: min(kv[1])):
-            pts = [cl_props.get(int(lid), None) for lid in lids_set if int(lid) in cl_props]
+            pts = [
+                cl_props.get(int(lid), None)
+                for lid in lids_set
+                if int(lid) in cl_props
+            ]
+
             if len(pts) == 0:
-                gy, gx = H/2, W/2
+                gy, gx = H / 2, W / 2
             else:
-                gy = float(np.mean([p[0] for p in pts])); gx = float(np.mean([p[1] for p in pts]))
-            ax.text(gx, gy, f"G{group_index}  (n={len(lids_set)})",
-                    color='w', fontsize=text_size, ha='center', va='center',
-                    bbox=dict(facecolor='black', alpha=0.65, pad=2, edgecolor='none'),
-                    zorder=6)
+                gy = float(np.mean([p[0] for p in pts]))
+                gx = float(np.mean([p[1] for p in pts]))
+
+            ax.text(
+                gx,
+                gy,
+                f"G{group_index}  (n={len(lids_set)})",
+                color="w",
+                fontsize=text_size,
+                ha="center",
+                va="center",
+                bbox=dict(
+                    facecolor="black",
+                    alpha=0.65,
+                    pad=2,
+                    edgecolor="none"
+                ),
+                zorder=6
+            )
+
             dna_ids_group = set()
+
             for lid in lids_set:
                 dna_ids_group.update(per_label_dna.get(lid, set()))
+
             for did in sorted(dna_ids_group):
                 cyx = dna_props.get(int(did), None)
-                if cyx is None: continue
+
+                if cyx is None:
+                    continue
+
                 dy, dx = float(cyx[0]), float(cyx[1])
                 rec = lengths_by_id.get(int(did), {})
-                bp = rec.get('length_bp', np.nan); nm = rec.get('length_nm', np.nan); px = rec.get('length_px', np.nan)
-                if pd.notna(bp):   txt = f"{int(round(bp))} bp"
-                elif pd.notna(nm): txt = f"{nm:.1f} nm"
-                elif pd.notna(px): txt = f"{int(round(px))} px"
-                else:              txt = "len NA"
-                ax.text(dx + 4, dy + 4, txt,
-                        color='k', fontsize=text_size, ha='center', va='center',
-                        bbox=dict(facecolor='yellow', alpha=0.80, pad=1.6, edgecolor='none'),
-                        zorder=7)
+
+                bp = rec.get("length_bp", np.nan)
+                nm = rec.get("length_nm", np.nan)
+                px = rec.get("length_px", np.nan)
+
+                if pd.notna(bp):
+                    txt = f"{int(round(bp))} bp"
+                elif pd.notna(nm):
+                    txt = f"{nm:.1f} nm"
+                elif pd.notna(px):
+                    txt = f"{int(round(px))} px"
+                else:
+                    txt = "len NA"
+
+                ax.text(
+                    dx + 4,
+                    dy + 4,
+                    txt,
+                    color="k",
+                    fontsize=text_size,
+                    ha="center",
+                    va="center",
+                    bbox=dict(
+                        facecolor="yellow",
+                        alpha=0.80,
+                        pad=1.6,
+                        edgecolor="none"
+                    ),
+                    zorder=7
+                )
+
             group_index += 1
-        out_png = os.path.join(output_overlay_folder, f"{filename_key}_group_overlay.pdf")
-        fig.savefig(out_png, bbox_inches='tight', pad_inches=0.05, format='pdf')
+
+        out_png = os.path.join(
+            output_overlay_folder,
+            f"{filename_key}_group_overlay.pdf"
+        )
+
+        fig.savefig(
+            out_png,
+            bbox_inches="tight",
+            pad_inches=0.05,
+            format="pdf"
+        )
         plt.close(fig)
 
-    # write CSV
+    # ------------------------------------------------------------
+    # Write group summary CSV
+    # ------------------------------------------------------------
     out_df = pd.DataFrame(rows_out, columns=[
-        "filename","n_clusters_in_group","cluster_ids","dna_ids",
-        "total_length_px","total_length_nm","total_length_bp",
-        "lengths_px_list","lengths_nm_list","lengths_bp_list"
+        "filename",
+        "n_clusters_in_group",
+        "cluster_ids",
+        "dna_ids",
+        "total_length_px",
+        "total_length_nm",
+        "total_length_bp",
+        "lengths_px_list",
+        "lengths_nm_list",
+        "lengths_bp_list",
     ])
+
     out_df.to_csv(output_csv_path, index=False)
+
+    # ------------------------------------------------------------
+    # Write DNA-centered summary CSV
+    # ------------------------------------------------------------
+    if dna_centered_output_csv_path is not None:
+        dna_df = pd.DataFrame(dna_rows_out, columns=[
+            "filename",
+            "dna_id",
+            "n_clusters_associated",
+            "cluster_ids",
+            "length_px",
+            "length_nm",
+            "length_bp",
+        ])
+
+        dna_df.to_csv(dna_centered_output_csv_path, index=False)
+
     return out_df

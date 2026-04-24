@@ -707,6 +707,7 @@ def cmd_run_unet(args):
                 os.makedirs(overlays_dir, exist_ok=True)
 
                 group_csv_path = os.path.join(link_out_dir, "group_summary.csv")
+                dna_centered_csv_path = os.path.join(link_out_dir, "dna_centered_summary.csv")
 
                 df_groups = summarize_and_make_overlays(
                     dna_annot_folder=dna_annot_folder,
@@ -714,6 +715,7 @@ def cmd_run_unet(args):
                     lengths_csv_path=lengths_csv_path,
                     output_csv_path=group_csv_path,
                     output_overlay_folder=overlays_dir,
+                    dna_centered_output_csv_path=dna_centered_csv_path,
                     dilation_radius_px=5,
                     min_overlap_px=0.5,
                     min_dna_component_area_px=1,
