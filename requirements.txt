@@ -2,7 +2,7 @@ roifile==2026.1.29
 scikit-image==0.26.0
 scipy==1.17.0
 tifffile==2026.1.28
-numpy==2.3.0
+numpy>=1.26.4,<2.0
 opencv-python-headless==4.13.0.92
 matplotlib==3.10.8
 pandas==3.0.0
